@@ -1,0 +1,120 @@
+name: rook-link-v1-first-ops
+
+on:
+  pull_request:
+    branches:
+      - task/4-rook-link-v1-orchestration
+    paths:
+      - 'ops/rook/requests/rook-link-v1-ops-001.json'
+      - '.github/workflows/rook-link-v1-first-ops.yml'
+      - 'docs/tasks/5-rook-link-v1-first-ops.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deliver:
+    name: Deliver immutable v1 orchestration pointer
+    if: >-
+      github.repository == 'vera-rubin/VISION-64' &&
+      github.actor == 'vera-rubin' &&
+      github.event.pull_request.head.repo.full_name == 'vera-rubin/VISION-64' &&
+      github.event.pull_request.head.ref == 'task/5-rook-link-v1-first-ops' &&
+      github.event.pull_request.base.ref == 'task/4-rook-link-v1-orchestration'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      ROOK_LINK_WEBHOOK_URL: ${{ secrets.ROOK_LINK_WEBHOOK_URL }}
+      ROOK_LINK_BEARER_TOKEN: ${{ secrets.ROOK_LINK_BEARER_TOKEN }}
+      REQUEST_COMMIT: ${{ github.event.pull_request.head.sha }}
+      REQUEST_PATH: ops/rook/requests/rook-link-v1-ops-001.json
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Validate pinned v1 request
+        run: python3 scripts/validate-rook-link.py request "$REQUEST_PATH"
+
+      - name: Deliver immutable pointer to Rook
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          url = os.environ.get("ROOK_LINK_WEBHOOK_URL", "")
+          token = os.environ.get("ROOK_LINK_BEARER_TOKEN", "")
+          commit = os.environ.get("REQUEST_COMMIT", "")
+          path = os.environ.get("REQUEST_PATH", "")
+
+          if not url or not token:
+              print("ROOK LINK delivery secrets are unavailable", file=sys.stderr)
+              raise SystemExit(2)
+
+          parsed = urllib.parse.urlsplit(url)
+          if parsed.scheme != "https" or parsed.hostname != "api2.cursor.sh":
+              print("ROOK LINK webhook endpoint failed host validation", file=sys.stderr)
+              raise SystemExit(2)
+          if not parsed.path.startswith("/automations/webhook"):
+              print("ROOK LINK webhook endpoint failed path validation", file=sys.stderr)
+              raise SystemExit(2)
+          if parsed.username or parsed.password or parsed.fragment:
+              print("ROOK LINK webhook endpoint contains forbidden URL components", file=sys.stderr)
+              raise SystemExit(2)
+
+          if not re.fullmatch(r"[0-9a-f]{40}([0-9a-f]{24})?", commit):
+              print("request commit is not an immutable full lowercase SHA", file=sys.stderr)
+              raise SystemExit(2)
+          if path != "ops/rook/requests/rook-link-v1-ops-001.json":
+              print("request path is not the canonical first-v1 path", file=sys.stderr)
+              raise SystemExit(2)
+
+          payload = json.dumps(
+              {
+                  "title": "[ROOK LINK] v1 ops 001",
+                  "request_commit": commit,
+                  "request_path": path,
+              },
+              separators=(",", ":"),
+          ).encode("utf-8")
+
+          request = urllib.request.Request(
+              url,
+              data=payload,
+              method="POST",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type": "application/json",
+                  "User-Agent": "VISION-64-ROOK-LINK/1",
+              },
+          )
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect)
+          try:
+              with opener.open(request, timeout=15) as response:
+                  status = response.getcode()
+                  response.read(4096)
+          except urllib.error.HTTPError as exc:
+              print(f"ROOK LINK webhook rejected pointer: HTTP {exc.code}", file=sys.stderr)
+              raise SystemExit(1)
+          except Exception as exc:
+              print(f"ROOK LINK webhook delivery failed: {type(exc).__name__}", file=sys.stderr)
+              raise SystemExit(1)
+
+          if status < 200 or status >= 300:
+              print(f"ROOK LINK webhook returned unexpected HTTP {status}", file=sys.stderr)
+              raise SystemExit(1)
+
+          print("ROOK LINK webhook accepted immutable v1 pointer")
+          PY
