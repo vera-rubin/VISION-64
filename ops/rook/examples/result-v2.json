@@ -1,0 +1,85 @@
+{
+  "schema": "rook-link.result.v2",
+  "request_id": "rook-link-orchestrate-001",
+  "repository": "vera-rubin/VISION-64",
+  "request_commit": "1111111111111111111111111111111111111111",
+  "request_path": "ops/rook/requests/rook-link-orchestrate-001.json",
+  "base_commit": "a1e9c49e6e7808e2582e7a74dce9146124457f1f",
+  "operation": "orchestrate.task.v1",
+  "status": "pass",
+  "started_at": "2026-08-29T05:00:00Z",
+  "finished_at": "2026-08-29T05:07:00Z",
+  "capabilities_used": [
+    "repo.read",
+    "git.task-branch",
+    "process.user",
+    "runner.inspect",
+    "qemu.execute",
+    "artifact.collect",
+    "worker.delegate"
+  ],
+  "summary": "Runner state was recorded, the requested QEMU smoke matrix completed, evidence was collected, and no repository fix was required.",
+  "actions": [
+    {
+      "capability": "runner.inspect",
+      "description": "Inspected the VISION self-hosted runner state and labels.",
+      "outcome": "pass",
+      "evidence": [
+        "Runner vision-devbox reported online with labels self-hosted, Linux, X64, vision."
+      ]
+    },
+    {
+      "capability": "qemu.execute",
+      "description": "Executed the bounded QEMU/OVMF smoke matrix.",
+      "outcome": "pass",
+      "evidence": [
+        "All requested smoke cases exited with the expected debug-exit status."
+      ]
+    },
+    {
+      "capability": "artifact.collect",
+      "description": "Collected serial output and a compact matrix report.",
+      "outcome": "pass",
+      "evidence": [
+        "Artifacts were stored under the task artifact root and hashed before return."
+      ]
+    },
+    {
+      "capability": "worker.delegate",
+      "description": "Delegated one repetitive matrix slice to Bear and verified its returned evidence.",
+      "outcome": "pass",
+      "evidence": [
+        "Bear handled only the assigned repetitive QEMU slice; Rook retained verification responsibility."
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "log",
+      "locator": "~/vision/artifacts/rook-link-orchestrate-001/qemu-serial.log",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "description": "Combined QEMU serial log for the smoke matrix."
+    },
+    {
+      "kind": "report",
+      "locator": "~/vision/artifacts/rook-link-orchestrate-001/matrix.json",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "description": "Structured smoke-matrix outcome report."
+    }
+  ],
+  "git": {
+    "branch": "rook/rook-link-orchestrate-001",
+    "head_commit": "2222222222222222222222222222222222222222",
+    "dirty": false
+  },
+  "delegation": {
+    "used": true,
+    "workers": [
+      {
+        "name": "Bear",
+        "task": "Run the assigned repetitive QEMU smoke slice and return logs only.",
+        "status": "pass"
+      }
+    ]
+  }
+}

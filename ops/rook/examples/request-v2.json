@@ -1,0 +1,55 @@
+{
+  "schema": "rook-link.request.v2",
+  "request_id": "rook-link-orchestrate-001",
+  "repository": "vera-rubin/VISION-64",
+  "base_commit": "a1e9c49e6e7808e2582e7a74dce9146124457f1f",
+  "operation": "orchestrate.task.v1",
+  "objective": {
+    "summary": "Prepare a bounded VISION-64 validation workspace, inspect the runner, execute a QEMU smoke matrix, collect evidence, and commit task-scoped fixes only if needed to make the matrix reproducible.",
+    "success_criteria": [
+      "Runner state and labels are recorded.",
+      "The requested QEMU smoke matrix completes or returns a reproducible blocker.",
+      "Relevant logs and test outputs are collected as artifacts.",
+      "Any repository changes stay on the exact task work branch and are reported with a head commit."
+    ]
+  },
+  "capabilities": [
+    "repo.read",
+    "repo.task-write",
+    "git.task-branch",
+    "process.user",
+    "tmux.manage",
+    "runner.inspect",
+    "runner.execute",
+    "qemu.execute",
+    "artifact.collect",
+    "tooling.install",
+    "network.outbound",
+    "worker.delegate"
+  ],
+  "execution": {
+    "mode": "autonomous",
+    "max_runtime_minutes": 120,
+    "max_workers": 3,
+    "work_branch": "rook/rook-link-orchestrate-001",
+    "computer_roots": []
+  },
+  "constraints": {
+    "merge_protected_branches": false,
+    "force_push": false,
+    "rewrite_history": false,
+    "read_secrets": false,
+    "exfiltrate_secrets": false,
+    "disable_security_controls": false,
+    "destructive_host_ops": false,
+    "self_modify_rook_link_trust": false
+  },
+  "evidence": {
+    "result_transport": "github-issue-3",
+    "include_actions": true,
+    "include_artifacts": true,
+    "include_delegation": true,
+    "max_excerpt_chars": 4000
+  },
+  "acknowledgement": "rook-link:rook-link-orchestrate-001:orchestrate.task.v1:autonomous"
+}

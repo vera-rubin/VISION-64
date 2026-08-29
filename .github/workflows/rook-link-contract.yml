@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - task/1-rook-link-v0
+      - task/4-rook-link-v1-orchestration
   pull_request:
     paths:
       - 'docs/ROOK_LINK.md'
       - 'docs/tasks/1-rook-link-v0.md'
+      - 'docs/tasks/4-rook-link-v1-orchestration.md'
       - 'ops/rook/**'
+      - 'schemas/rook-link/**'
       - 'scripts/validate-rook-link.py'
       - 'scripts/test-rook-link.py'
       - '.github/workflows/rook-link-contract.yml'
@@ -26,12 +29,36 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Validate canonical request
+
+      - name: Parse all wire schemas
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for path in sorted(Path('schemas/rook-link').glob('*.json')):
+              json.loads(path.read_text(encoding='utf-8'))
+              print('parsed', path)
+          PY
+
+      - name: Validate proven v0 request
         run: python3 scripts/validate-rook-link.py request ops/rook/examples/request-v1.json
-      - name: Validate canonical result
+
+      - name: Validate proven v0 result
         run: python3 scripts/validate-rook-link.py result ops/rook/examples/result-v1.json --request ops/rook/examples/request-v1.json
+
+      - name: Validate capability orchestration request
+        run: python3 scripts/validate-rook-link.py request ops/rook/examples/request-v2.json
+
+      - name: Validate capability orchestration result and immutable pointer
+        run: >-
+          python3 scripts/validate-rook-link.py result ops/rook/examples/result-v2.json
+          --request ops/rook/examples/request-v2.json
+          --request-commit 1111111111111111111111111111111111111111
+          --request-path ops/rook/requests/rook-link-orchestrate-001.json
+
       - name: Run fail-closed negative suite
         run: python3 scripts/test-rook-link.py
+
       - name: Assert no self-hosted execution
         run: |
           if grep -Eq '^[[:space:]]*runs-on:[[:space:]].*self-hosted' .github/workflows/rook-link-contract.yml; then

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vision-64.invalid/schemas/rook-link/request-v2.schema.json",
+  "title": "ROOK LINK request v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "repository", "base_commit", "operation", "objective", "capabilities", "execution", "constraints", "evidence", "acknowledgement"],
+  "properties": {
+    "schema": {"const": "rook-link.request.v2"},
+    "request_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "operation": {"const": "orchestrate.task.v1"},
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "success_criteria"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "success_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "repo.read",
+          "repo.task-write",
+          "git.task-branch",
+          "process.user",
+          "tmux.manage",
+          "runner.inspect",
+          "runner.execute",
+          "runner.manage",
+          "qemu.execute",
+          "artifact.collect",
+          "tooling.install",
+          "network.outbound",
+          "worker.delegate",
+          "github.issue.write",
+          "github.pr.write",
+          "computer.read",
+          "computer.task-write"
+        ]
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "max_runtime_minutes", "max_workers", "work_branch", "computer_roots"],
+      "properties": {
+        "mode": {"const": "autonomous"},
+        "max_runtime_minutes": {"type": "integer", "minimum": 1, "maximum": 360},
+        "max_workers": {"type": "integer", "minimum": 0, "maximum": 8},
+        "work_branch": {
+          "anyOf": [
+            {"type": "null"},
+            {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"}
+          ]
+        },
+        "computer_roots": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 512}
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merge_protected_branches", "force_push", "rewrite_history", "read_secrets", "exfiltrate_secrets", "disable_security_controls", "destructive_host_ops", "self_modify_rook_link_trust"],
+      "properties": {
+        "merge_protected_branches": {"const": false},
+        "force_push": {"const": false},
+        "rewrite_history": {"const": false},
+        "read_secrets": {"const": false},
+        "exfiltrate_secrets": {"const": false},
+        "disable_security_controls": {"const": false},
+        "destructive_host_ops": {"const": false},
+        "self_modify_rook_link_trust": {"const": false}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result_transport", "include_actions", "include_artifacts", "include_delegation", "max_excerpt_chars"],
+      "properties": {
+        "result_transport": {"const": "github-issue-3"},
+        "include_actions": {"const": true},
+        "include_artifacts": {"type": "boolean"},
+        "include_delegation": {"const": true},
+        "max_excerpt_chars": {"type": "integer", "minimum": 0, "maximum": 8000}
+      }
+    },
+    "acknowledgement": {"type": "string", "pattern": "^rook-link:[a-z0-9][a-z0-9._-]{0,63}:orchestrate\\.task\\.v1:autonomous$"}
+  }
+}
