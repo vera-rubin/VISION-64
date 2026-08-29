@@ -53,7 +53,6 @@ cd tools/pulse-lite
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .[dev]
-python -m playwright install chromium
 ```
 
 PULSE uses the already-authenticated `gh` CLI for GitHub reads. Check it first:
@@ -77,6 +76,31 @@ Example Chrome launch on Windows:
 ```
 
 Sign in manually once, open the exact ChatGPT conversation you want PULSE to use, then copy that conversation URL.
+
+## One-command Windows live acceptance
+
+For the first real Windows acceptance pass, use the checked-in harness. It creates an isolated virtual environment, installs PULSE, runs the unit tests, launches a dedicated Chrome/Edge profile with loopback CDP, runs `pulse doctor`, prints both deterministic dry-run prompts, and optionally performs exactly one live wake against the already-completed `rook-link-v1-ops-001` result on issue #3.
+
+From the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\pulse-lite\scripts\windows-acceptance.ps1 `
+  -ConversationUrl "https://chatgpt.com/c/YOUR-CONVERSATION-ID"
+```
+
+That is the safe pass: it touches the real browser but does not submit a ChatGPT message.
+
+For the final one-message live wake:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\pulse-lite\scripts\windows-acceptance.ps1 `
+  -ConversationUrl "https://chatgpt.com/c/YOUR-CONVERSATION-ID" `
+  -LiveWake
+```
+
+The live pass deliberately uses the existing immutable Rook v1 result as a harmless acceptance event. It must produce exactly one user message beginning `PULSE micro-loop wake.` in the configured conversation and leave `wake_budget_remaining` at `0`. Existing composer text or a generating ChatGPT response blocks injection instead of being overwritten.
+
+The harness never logs into ChatGPT for you, never reads browser credentials, and never stores ChatGPT or GitHub secrets.
 
 ## CLI examples
 
