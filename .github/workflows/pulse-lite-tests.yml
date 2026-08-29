@@ -37,3 +37,16 @@ jobs:
       - name: Run unit tests
         working-directory: tools/pulse-lite
         run: python -m pytest
+      - name: Parse Windows acceptance harness
+        shell: pwsh
+        run: |
+          $path = 'tools/pulse-lite/scripts/windows-acceptance.ps1'
+          $text = Get-Content -Raw -LiteralPath $path
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
+          if ($errors.Count -ne 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host 'PowerShell parse: pass'
