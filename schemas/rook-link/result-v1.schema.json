@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vision-64.invalid/schemas/rook-link/result-v1.schema.json",
+  "title": "ROOK LINK result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "repository", "request_commit", "request_path", "base_commit", "operation", "status", "started_at", "finished_at", "evidence"],
+  "properties": {
+    "schema": {"const": "rook-link.result.v1"},
+    "request_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "request_commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "request_path": {"type": "string", "pattern": "^ops/rook/requests/[A-Za-z0-9._/-]+$"},
+    "base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "operation": {"const": "probe.environment.v1"},
+    "status": {"enum": ["pass", "fail", "blocked"]},
+    "started_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "finished_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {"type": "string"},
+        "date_utc": {"type": "string"},
+        "tool_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "git": {"type": "string"},
+            "rustc": {"type": "string"},
+            "cargo": {"type": "string"},
+            "qemu-system-x86_64": {"type": "string"},
+            "python3": {"type": "string"}
+          }
+        },
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
