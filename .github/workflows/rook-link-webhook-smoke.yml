@@ -3,11 +3,11 @@ name: rook-link-webhook-smoke
 on:
   pull_request:
     branches:
-      - task/1-rook-link-v0
+      - task/2-rook-link-webhook-smoke
     paths:
-      - 'ops/rook/requests/rook-link-smoke-001.json'
+      - 'ops/rook/requests/rook-link-smoke-002.json'
       - '.github/workflows/rook-link-webhook-smoke.yml'
-      - 'docs/tasks/2-rook-link-webhook-smoke.md'
+      - 'docs/tasks/3-rook-link-result-return.md'
 
 permissions:
   contents: read
@@ -19,15 +19,15 @@ jobs:
       github.repository == 'vera-rubin/VISION-64' &&
       github.actor == 'vera-rubin' &&
       github.event.pull_request.head.repo.full_name == 'vera-rubin/VISION-64' &&
-      github.event.pull_request.head.ref == 'task/2-rook-link-webhook-smoke' &&
-      github.event.pull_request.base.ref == 'task/1-rook-link-v0'
+      github.event.pull_request.head.ref == 'task/3-rook-link-result-return' &&
+      github.event.pull_request.base.ref == 'task/2-rook-link-webhook-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     env:
       ROOK_LINK_WEBHOOK_URL: ${{ secrets.ROOK_LINK_WEBHOOK_URL }}
       ROOK_LINK_BEARER_TOKEN: ${{ secrets.ROOK_LINK_BEARER_TOKEN }}
       REQUEST_COMMIT: ${{ github.event.pull_request.head.sha }}
-      REQUEST_PATH: ops/rook/requests/rook-link-smoke-001.json
+      REQUEST_PATH: ops/rook/requests/rook-link-smoke-002.json
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -72,13 +72,13 @@ jobs:
           if not re.fullmatch(r"[0-9a-f]{40}([0-9a-f]{24})?", commit):
               print("request commit is not an immutable full lowercase SHA", file=sys.stderr)
               raise SystemExit(2)
-          if path != "ops/rook/requests/rook-link-smoke-001.json":
+          if path != "ops/rook/requests/rook-link-smoke-002.json":
               print("request path is not the canonical smoke path", file=sys.stderr)
               raise SystemExit(2)
 
           payload = json.dumps(
               {
-                  "title": "[ROOK LINK] Smoke 001",
+                  "title": "[ROOK LINK] Smoke 002",
                   "request_commit": commit,
                   "request_path": path,
               },
