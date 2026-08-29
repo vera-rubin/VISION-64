@@ -1,0 +1,60 @@
+{
+  "schema": "rook-link.request.v2",
+  "request_id": "rook-link-v1-ops-001",
+  "repository": "vera-rubin/VISION-64",
+  "base_commit": "2bac8b4b2200690ece8c0a45ccbf8a73454fa0bd",
+  "operation": "orchestrate.task.v1",
+  "objective": {
+    "summary": "Establish a truthful operational baseline for VISION-64: inspect the repository/workspace and self-hosted runner, organize a task-scoped process or tmux workspace if useful, determine the strongest real QEMU/OVMF and repository validation currently available, execute it, collect evidence and artifacts, and make only task-scoped reproducibility fixes if genuinely required. Do not invent kernel functionality that does not exist.",
+    "success_criteria": [
+      "Repository/workspace state and self-hosted runner state are recorded with evidence.",
+      "The strongest legitimate currently available QEMU/OVMF or repository smoke validation is executed, or the absence of a runnable target is proven as a truthful blocker.",
+      "Useful logs, reports, test outputs, or hashes are collected when available and returned as artifacts.",
+      "Any repository changes are limited to reproducibility/operations fixes on the exact authorized task work branch and are reported with final Git state.",
+      "Any Zoo delegation is bounded and repetitive, and Rook independently verifies the returned evidence.",
+      "Exactly one schema-valid rook-link.result.v2 result is returned through GitHub issue #3."
+    ]
+  },
+  "capabilities": [
+    "repo.read",
+    "repo.task-write",
+    "git.task-branch",
+    "process.user",
+    "tmux.manage",
+    "runner.inspect",
+    "runner.execute",
+    "runner.manage",
+    "qemu.execute",
+    "artifact.collect",
+    "tooling.install",
+    "network.outbound",
+    "worker.delegate",
+    "github.issue.write",
+    "github.pr.write"
+  ],
+  "execution": {
+    "mode": "autonomous",
+    "max_runtime_minutes": 90,
+    "max_workers": 3,
+    "work_branch": "rook/rook-link-v1-ops-001",
+    "computer_roots": []
+  },
+  "constraints": {
+    "merge_protected_branches": false,
+    "force_push": false,
+    "rewrite_history": false,
+    "read_secrets": false,
+    "exfiltrate_secrets": false,
+    "disable_security_controls": false,
+    "destructive_host_ops": false,
+    "self_modify_rook_link_trust": false
+  },
+  "evidence": {
+    "result_transport": "github-issue-3",
+    "include_actions": true,
+    "include_artifacts": true,
+    "include_delegation": true,
+    "max_excerpt_chars": 6000
+  },
+  "acknowledgement": "rook-link:rook-link-v1-ops-001:orchestrate.task.v1:autonomous"
+}
