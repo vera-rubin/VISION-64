@@ -54,6 +54,7 @@ class SessionState:
     wake_budget_initial: int
     wake_budget_remaining: int
     cdp_url: str
+    adapter_mode: str = "web"
     started_at: str = field(default_factory=utc_now)
     status: str = "active"
     last_seen_comment_id: int = 0
@@ -76,6 +77,8 @@ class SessionState:
     def validate(self) -> None:
         if self.status not in {"active", "paused", "stopped", "completed"}:
             raise ValueError(f"invalid status: {self.status}")
+        if self.adapter_mode not in {"web", "desktop"}:
+            raise ValueError(f"invalid adapter_mode: {self.adapter_mode}")
         if not (1 <= self.wake_budget_initial <= 3):
             raise ValueError("wake_budget_initial must be 1..3")
         if not (0 <= self.wake_budget_remaining <= self.wake_budget_initial):
