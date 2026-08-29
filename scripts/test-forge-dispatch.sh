@@ -135,6 +135,12 @@ expect_failure absent-execute-gates \
     --job-id execute --base-ref "$base_commit" --mode execute --agent codex \
     --task-id 1 --slug document-smoke --task-spec docs/tasks/1-document-smoke.md \
     --allow-path docs/
+expect_failure enabled-execute-gates \
+    env FORGE_ENABLE_REAL_AGENTS=1 FORGE_AGENT_ACK=codex:enabled \
+    "$script_dir/forge-dispatch.sh" --repo-root "$repo_root" --work-root "$test_root/enabled-execute" \
+    --job-id enabled --base-ref "$base_commit" --mode execute --agent codex \
+    --task-id 1 --slug document-smoke --task-spec docs/tasks/1-document-smoke.md \
+    --allow-path docs/
 expect_failure evidence-replay \
     "$script_dir/forge-dispatch.sh" --repo-root "$repo_root" --work-root "$work_root" \
     --job-id "$job_id" --base-ref "$base_commit" --mode smoke --agent none
@@ -184,6 +190,7 @@ grep -F '# Task 1: Documentation fixture' "$replacement_worktree/docs/tasks/1-do
 ! grep -F '# replacement object' "$replacement_worktree/docs/tasks/1-document-fixture.md" >/dev/null ||
     die 'replacement object was unexpectedly visible'
 git -C "$replacement_repo" replace -d "$replacement_commit" >/dev/null
+printf 'ok - replacement refs are ignored\n'
 
 fixture_job=candidate-fixture
 fixture_worktree=$(
