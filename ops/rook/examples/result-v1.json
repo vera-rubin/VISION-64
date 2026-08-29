@@ -1,0 +1,21 @@
+{
+  "schema": "rook-link.result.v1",
+  "request_id": "smoke-001",
+  "repository": "vera-rubin/VISION-64",
+  "request_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "request_path": "ops/rook/requests/smoke-001.json",
+  "base_commit": "e0f7dc7741af760199003499ec060659b76fb296",
+  "operation": "probe.environment.v1",
+  "status": "pass",
+  "started_at": "2026-08-29T00:00:00Z",
+  "finished_at": "2026-08-29T00:00:01Z",
+  "evidence": {
+    "hostname": "example-host",
+    "date_utc": "2026-08-29T00:00:01Z",
+    "tool_versions": {
+      "git": "git version 2.x",
+      "python3": "Python 3.x"
+    },
+    "notes": "example only; not execution evidence"
+  }
+}

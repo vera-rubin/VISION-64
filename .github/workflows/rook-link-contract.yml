@@ -1,0 +1,40 @@
+name: rook-link-contract
+
+on:
+  push:
+    branches:
+      - task/1-rook-link-v0
+  pull_request:
+    paths:
+      - 'docs/ROOK_LINK.md'
+      - 'docs/tasks/1-rook-link-v0.md'
+      - 'ops/rook/**'
+      - 'scripts/validate-rook-link.py'
+      - 'scripts/test-rook-link.py'
+      - '.github/workflows/rook-link-contract.yml'
+      - '.github/ISSUE_TEMPLATE/rook-link-request.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate canonical request
+        run: python3 scripts/validate-rook-link.py request ops/rook/examples/request-v1.json
+      - name: Validate canonical result
+        run: python3 scripts/validate-rook-link.py result ops/rook/examples/result-v1.json --request ops/rook/examples/request-v1.json
+      - name: Run fail-closed negative suite
+        run: python3 scripts/test-rook-link.py
+      - name: Assert no self-hosted execution
+        run: |
+          if grep -Eq '^[[:space:]]*runs-on:[[:space:]].*self-hosted' .github/workflows/rook-link-contract.yml; then
+            echo 'self-hosted runner forbidden for ROOK LINK contract CI' >&2
+            exit 1
+          fi
