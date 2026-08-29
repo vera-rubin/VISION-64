@@ -4,6 +4,11 @@
 Copy this file to docs/adr/NNNN-short-kebab-title.md. Assign the next unused
 four-digit number; never renumber or reuse an ADR number. Remove instructional
 comments before requesting acceptance. A prototype does not make an ADR Accepted.
+
+A Proposed ADR may be authored during GENESIS. It becomes Accepted only when
+the exact blob is merged through the protected authority with independent
+maintainer/CODEOWNER approval and a durable protected record. An ADR may propose
+an invariant amendment or retirement; it never waives an invariant.
 -->
 
 - **Status:** Proposed
@@ -14,6 +19,8 @@ comments before requesting acceptance. A prototype does not make an ADR Accepted
 - **Related invariants:** `V64-...`
 - **Supersedes:** None
 - **Superseded by:** None
+- **Approval authority:** Independent maintainer/CODEOWNER role (no self-approval)
+- **Approval evidence:** Protected PR/check and merged commit, or `pending` while Proposed
 
 ## Decision summary
 

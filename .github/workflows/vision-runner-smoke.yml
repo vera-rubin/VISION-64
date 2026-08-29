@@ -5,6 +5,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: vision-runner-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   smoke:
     runs-on: [self-hosted, linux, x64, vision]

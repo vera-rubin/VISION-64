@@ -95,6 +95,13 @@ a conflict, work stops until the broader artifact is amended or the narrower
 artifact is corrected. Silence is not permission to invent an architectural
 choice.
 
+Status text in a branch or candidate is not authority. An ADR becomes Accepted,
+or a task Approved, only when its exact blob is reachable from the configured
+protected authority ref through the required independent maintainer/CODEOWNER
+approval. The protected ref, authority commit, artifact path, and blob object ID
+form the immutable authority tuple. Authors and dispatched workers MUST NOT
+self-approve their governing artifact.
+
 Role-specific guidance, including [CLAUDE.md](../CLAUDE.md), may further restrict
 a worker but cannot weaken this order. Operational agent and review rules are in
 [AGENTS.md](../AGENTS.md) and [FORGE.md](FORGE.md). Delivery gates and the
@@ -160,9 +167,10 @@ of, or requires initialization side effects from B.
 7. Host tooling and test harnesses MAY depend on public artifacts and explicit
    test interfaces. Production code MUST NOT depend on host tooling or on
    test-only behavior.
-8. Dependency cycles between logical subsystems are forbidden. Any unavoidable
-   cycle MUST be broken by extracting a smaller contract or justified by an ADR
-   with initialization and failure analysis.
+8. Dependency cycles between logical subsystems are forbidden. An apparent cycle
+   MUST be broken by extracting a smaller contract or the proposed boundary must
+   return to constitutional review. An ADR may redraw boundaries only when the
+   resulting dependency graph remains acyclic; it cannot waive acyclicity.
 
 Hidden dependencies through mutable globals, linker side effects, build scripts,
 environment variables, or initialization order count as dependencies and MUST be
@@ -198,7 +206,8 @@ An ADR is required before a change:
 - selects or changes a system-wide mechanism, trust boundary, public ABI, boot
   contract, persistence format, or cross-subsystem contract;
 - adds a new class of privileged or unsafe operation;
-- creates an exception to an invariant or dependency rule;
+- proposes an amendment or retirement of an invariant or constitutional
+  dependency rule (the ADR alone creates no exception);
 - introduces an externally maintained target-side dependency;
 - makes a choice that would be expensive or risky to reverse.
 
@@ -206,6 +215,12 @@ Use [0000-template.md](adr/0000-template.md). ADR filenames MUST be
 `NNNN-short-kebab-title.md` with a monotonically assigned four-digit number. The
 allowed states are **Proposed**, **Accepted**, **Rejected**, **Superseded**, and
 **Deprecated**. Only Accepted ADRs authorize implementation.
+
+Acceptance requires the exact ADR blob to be merged through the protected
+authority ref with the configured independent approval. A status edit on an
+untrusted branch, issue, or candidate commit has no authority. Proposed ADRs may
+be authored as bounded GENESIS governance work without a prior task, but they
+authorize no TEMPER work until Accepted.
 
 An accepted ADR is an immutable decision record. Corrections that do not change
 meaning MAY be made in place; a changed decision requires a new ADR that links to

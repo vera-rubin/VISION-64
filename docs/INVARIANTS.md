@@ -18,9 +18,12 @@ expectations are in [TESTING.md](TESTING.md).
 
 ### V64-GOV-001 — Authorized scope
 
-Every change MUST trace to an approved task specification with bounded scope,
-acceptance tests, and explicit exclusions. An agent MUST NOT turn ambiguity into
-new architecture or adjacent implementation.
+Every TEMPER candidate and every non-GENESIS repository change MUST trace to an
+approved task specification with bounded scope, acceptance tests, and explicit
+exclusions. A Proposed task or ADR MAY be authored and reviewed without a prior
+task only as bounded GENESIS governance work; it authorizes no implementation
+until independently approved through the protected authority process. An agent
+MUST NOT turn ambiguity into new architecture or adjacent implementation.
 
 ### V64-GOV-002 — Decision traceability
 
@@ -39,6 +42,21 @@ and elapsed time MUST NOT substitute for evidence.
 The author or improver of a change MUST NOT be its sole verifier. Verification
 MUST be repeatable from repository state without relying on undocumented
 conversation context or mutable local state.
+
+### V64-GOV-005 — Authenticated authority
+
+An ADR, task, or constitutional amendment MUST derive authority from its exact
+blob being reachable from the configured protected authority ref through the
+required independent approval. Status text, mutable transport data, an untrusted
+branch, or a candidate commit MUST NOT create authority. Dispatch MUST bind to
+the protected ref, authority commit, artifact path, and blob object ID.
+
+### V64-GOV-006 — Independently anchored evidence
+
+Before evidence supports PROOF, its manifest digest and exact candidate identity
+MUST be anchored in a protected record controlled independently of the evidence
+coordinator. A checksum stored only beside the files it covers MUST NOT be
+treated as tamper-proof provenance.
 
 ## Build and lifecycle
 

@@ -4,6 +4,16 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
 export LC_ALL=C
+export GIT_NO_REPLACE_OBJECTS=1
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_TERMINAL_PROMPT=0
+export GIT_PAGER=cat
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
+    GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+    GIT_REPLACE_REF_BASE GIT_NAMESPACE GIT_EXEC_PATH \
+    GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
+    GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
 usage() {
     cat <<'EOF'
@@ -57,6 +67,9 @@ profile=''
 branch=''
 task_spec=''
 declare -a allow_paths=()
+max_changed_files=64
+max_file_bytes=1048576
+max_total_bytes=4194304
 
 while (($#)); do
     case "$1" in
@@ -137,6 +150,8 @@ done
 
 repo_root=$(canonical_dir "$repo_root")
 work_root=$(canonical_dir "$work_root")
+command -v realpath >/dev/null 2>&1 || die 'realpath executable not found'
+command -v stat >/dev/null 2>&1 || die 'stat executable not found'
 [[ "$work_root" != / && "$work_root" != "$repo_root" && "$work_root" != "$repo_root"/* ]] ||
     die 'invalid work-root boundary'
 worktree_path="$work_root/worktrees/$job_id"
@@ -192,6 +207,36 @@ if ((${#changed_paths[@]} > 0)); then
 fi
 sort -u -o "$changed_paths_file" "$changed_paths_file"
 
+declare -a unique_paths=()
+while IFS= read -r changed; do
+    [[ -n "$changed" ]] && unique_paths+=("$changed")
+done <"$changed_paths_file"
+changed_paths=("${unique_paths[@]}")
+(( ${#changed_paths[@]} <= max_changed_files )) ||
+    die "candidate changed more than $max_changed_files files"
+
+total_bytes=0
+for changed in "${changed_paths[@]}"; do
+    candidate_path="$worktree_path/$changed"
+    path_cursor="$worktree_path"
+    IFS='/' read -r -a path_components <<<"$changed"
+    for component in "${path_components[@]}"; do
+        [[ -n "$component" ]] || continue
+        path_cursor="$path_cursor/$component"
+        [[ ! -L "$path_cursor" ]] || die "candidate path traverses a symlink: $changed"
+    done
+    if [[ -e "$candidate_path" || -L "$candidate_path" ]]; then
+        [[ -f "$candidate_path" && ! -L "$candidate_path" ]] ||
+            die "candidate path is not a regular file: $changed"
+        resolved_path=$(realpath -e -- "$candidate_path") || die "unable to resolve candidate path: $changed"
+        [[ "$resolved_path" == "$worktree_path"/* ]] || die "candidate path escaped its worktree: $changed"
+        file_bytes=$(stat -c '%s' -- "$candidate_path") || die "unable to size candidate path: $changed"
+        ((file_bytes <= max_file_bytes)) || die "candidate file exceeds $max_file_bytes bytes: $changed"
+        total_bytes=$((total_bytes + file_bytes))
+        ((total_bytes <= max_total_bytes)) || die "candidate files exceed $max_total_bytes total bytes"
+    fi
+done
+
 git -C "$worktree_path" diff --binary --no-ext-diff "$base_commit" -- >"$evidence_dir/candidate.patch"
 git -C "$worktree_path" diff --check "$base_commit" -- >"$evidence_dir/diff-check.txt"
 for changed in "${untracked_paths[@]}"; do
@@ -230,6 +275,8 @@ else
 fi
 
 {
+    printf 'check=structural-only\n'
+    printf 'note=not-forge-verify-or-proof\n'
     printf 'profile=%s\n' "$profile"
     printf 'base_commit=%s\n' "$base_commit"
     printf 'head_commit=%s\n' "$head_commit"

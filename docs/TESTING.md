@@ -23,7 +23,10 @@ Before implementation, every task MUST give each acceptance criterion a stable
 ID and record all of the following:
 
 - the invariant, Accepted ADR, or requirement that the criterion demonstrates;
-- the immutable base revision and permitted paths;
+- the requested implementation source baseline/policy and permitted paths; the
+  protected authority ref, containing authority commit, task path, and task blob
+  ID are recorded after approval in the dispatch/proof record rather than as an
+  impossible self-reference inside the task;
 - exact noninteractive commands, working directory, declared inputs, toolchain
   versions, features, target, and configuration;
 - preconditions and fixtures, including a negative fixture where false-positive
@@ -67,6 +70,11 @@ immutable after the verifier signs off. Secrets MUST be omitted or redacted at
 capture; redaction MUST NOT hide behavior material to the result. Failed runs are
 retained alongside successful runs. Rerunning a failure creates a new attempt;
 it does not replace the first evidence package.
+
+Before cleanup or PROOF, the evidence-manifest digest, exact candidate commit,
+and CI run/artifact ID and digest MUST be written to a protected check or PR
+record controlled independently of the coordinator. `SHA256SUMS` stored inside
+the package detects accidental corruption but is not independent provenance.
 
 For Sprint 0 QEMU cases, the canonical package layout is:
 
@@ -219,9 +227,9 @@ fails.
 
 ## Continuous integration
 
-Required checks MUST run against the exact candidate commit and report that
-object ID. CI definitions and executable actions are part of the trusted build
-surface and require review. Workflows MUST use:
+Required candidate checks MUST run against the exact candidate commit and report
+that object ID. CI definitions and executable actions are part of the trusted
+build surface and require review. Candidate-evidence workflows MUST use:
 
 - least-privilege `GITHUB_TOKEN` permissions, job timeouts, bounded concurrency,
   and immutable full-SHA pins for third-party actions;
@@ -240,6 +248,12 @@ check out or run contributor code. Privileged runner access, nested
 virtualization, network access, or secret-bearing publication requires a
 separate reviewed threat model and workflow.
 
+The legacy manual `vision-runner-smoke.yml` is only a runner-capability probe; it
+is not candidate evidence and cannot advance FORGE. It retains immutable Actions
+logs rather than an evidence artifact, while still requiring read-only
+permissions, non-cancelling concurrency, a timeout, a full action pin, and no
+persisted checkout credential.
+
 The required Sprint 0 CI sequence is static policy checks, clean reproducible
 build, host tests, three positive QEMU runs, three intentional-fatal QEMU runs,
 classifier negative fixtures, evidence integrity verification, and an
@@ -249,14 +263,16 @@ green by skipping it.
 ## Gate F orchestration smoke
 
 The harmless factory smoke is deliberately smaller than a Sprint 0 test. It
-proves checkout, input validation, worktree isolation, structural verification,
-cleanup, and artifact transport only. It MUST be detached, branchless,
-agentless, mutation-free, and must not build, boot, or edit kernel code.
+proves trusted checkout, input validation, job-path separation, structural
+inspection, cleanup, and artifact transport only. It MUST be detached,
+branchless, agentless, mutation-free, and must not build, boot, or edit kernel
+code. Its linked worktree shares the checkout's common Git directory; it is not a
+security boundary and MUST NOT be reused for real-agent execution.
 
 The canonical entry point is:
 
 ```text
-./scripts/forge-dispatch.sh --repo-root <absolute-repository-root> --work-root <absolute-temporary-root-outside-repository> --job-id <safe-unique-id> --base-ref <full-commit-id> --mode smoke --agent none
+./scripts/forge-dispatch.sh --repo-root <clean-trusted-repository-root> --work-root <absolute-temporary-root-outside-repository> --job-id <safe-unique-id> --base-ref <full-policy-commit-equal-to-checkout-HEAD> --mode smoke --agent none
 ```
 
 The deterministic local positive/negative check is `bash
@@ -284,30 +300,36 @@ diff-check.txt
 verification.env
 verification-output.txt
 verification-stderr.txt
+policy-integrity.env
 dispatch-result.env
 SHA256SUMS
 ```
 
 The empty status, patch, and changed-path files plus `head_state=detached`, equal
-base/head commits, `agent=none`, successful cleanup, and matching checksums are
-the Gate F proof. Missing evidence fails the smoke.
+base/head commits, `agent=none`, successful cleanup, structural-only verification,
+authenticated policy/helper blob IDs, and matching checksums are the Gate F
+evidence. It is not FORGE VERIFY or PROOF. Missing or contradictory evidence
+fails the smoke.
 
-Before enabling issue-triggered execution, negative tests MUST also prove that
-unknown flags, malformed IDs, symbolic refs, path traversal, work roots that
-overlap the repository, pre-existing worktree/evidence paths, noncanonical task
-specs, mode/agent mismatches, and absent per-job execution gates all fail before
-an agent starts. Issue bodies and comments remain data and are never evaluated.
-During the current bootstrap gate, the dispatcher and both adapters accept only
-documentation-path allowlists (`docs/`, `AGENTS.md`, `CLAUDE.md`, or
-`README.md`); every implementation path fails before agent launch. Enabling
-Sprint 0 implementation requires a separately reviewed dispatch-policy change
-after its entry gate and tasks are approved.
+Before any issue-triggered execution is considered, negative tests MUST prove
+that unknown flags, malformed IDs, symbolic refs, replacement refs, path
+traversal, work roots that overlap the repository, pre-existing worktree/evidence
+paths, noncanonical task specs, mode/agent mismatches, dirty or policy-divergent
+coordinator checkouts, special files, oversized changes, and execute requests
+all fail before a worktree or agent starts. Issue bodies and comments remain data
+and are never evaluated. During Gate F, `mode=execute` is unconditionally
+rejected and both adapters are dry-run-only; no implementation path is
+dispatchable. Enabling Sprint 0 implementation requires a separately reviewed
+dispatch-policy change after its entry gate and approved tasks.
 
 ## Sprint 0 acceptance and exit
 
-Sprint 0 may begin only after the required diagnostics and debug-exit ADRs are
-Accepted and their exact commands, marker registry, status mapping, fixtures,
-and artifact hashes are frozen in approved tasks. Its complete evidence set MUST
+Sprint 0 may begin only after Gate F is accepted; the exact implementation task
+is merged through protected authority with its authority tuple recorded; and
+every required mechanism has an Accepted ADR (target/boot/firmware/artifact,
+diagnostics/serial, panic path, and debug-exit). Their exact commands, marker
+registry, status mapping, fixtures, input hashes, and artifact hashes are frozen
+in the approved task. Its complete evidence set MUST
 demonstrate:
 
 1. a clean declared-input build of the expected artifact;

@@ -4,6 +4,16 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
 export LC_ALL=C
+export GIT_NO_REPLACE_OBJECTS=1
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_TERMINAL_PROMPT=0
+export GIT_PAGER=cat
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
+    GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+    GIT_REPLACE_REF_BASE GIT_NAMESPACE GIT_EXEC_PATH \
+    GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
+    GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
 usage() {
     cat <<'EOF'
@@ -115,9 +125,11 @@ worktree_path="$worktrees_root/$job_id"
 [[ ! -e "$worktree_path" && ! -L "$worktree_path" ]] || die "worktree path already exists: $worktree_path"
 
 if [[ -n "$branch" ]]; then
-    git -C "$repo_root" worktree add -b "$branch" "$worktree_path" "$base_commit" >&2
+    git -C "$repo_root" -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+        worktree add -b "$branch" "$worktree_path" "$base_commit" >&2
 else
-    git -C "$repo_root" worktree add --detach "$worktree_path" "$base_commit" >&2
+    git -C "$repo_root" -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+        worktree add --detach "$worktree_path" "$base_commit" >&2
 fi
 
 created_top=$(git -C "$worktree_path" rev-parse --show-toplevel 2>/dev/null) ||

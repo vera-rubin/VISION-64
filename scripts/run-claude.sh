@@ -4,6 +4,16 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
 export LC_ALL=C
+export GIT_NO_REPLACE_OBJECTS=1
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_TERMINAL_PROMPT=0
+export GIT_PAGER=cat
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
+    GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+    GIT_REPLACE_REF_BASE GIT_NAMESPACE GIT_EXEC_PATH \
+    GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
+    GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
 usage() {
     cat <<'EOF'
@@ -12,9 +22,8 @@ Usage: run-claude.sh --work-root PATH --job-id ID --base-ref COMMIT
                      [--mode dry-run|execute] [--timeout-seconds N]
                      [--max-turns N] --allow-path PATH [--allow-path PATH ...]
 
-Dry-run is the default. Execute additionally requires:
-  FORGE_ENABLE_REAL_AGENTS=1
-  FORGE_AGENT_ACK=claude:<job-id>
+Only dry-run is available during Gate F. Any execute request is rejected before
+the worktree or an agent process is reached.
 EOF
 }
 
@@ -49,10 +58,11 @@ bootstrap_path_allowed() {
 
 approved_task_file() {
     local task_file=$1
-    local status_count approved_count
+    local schema_count status_count approved_count
+    schema_count=$(grep -Ec '^- Schema: `vision-task-v1`([[:space:]]|$)' "$task_file" || true)
     status_count=$(grep -Ec '^- Status:' "$task_file" || true)
     approved_count=$(grep -Ec '^- Status: `approved`([[:space:]]|$)' "$task_file" || true)
-    [[ "$status_count" == 1 && "$approved_count" == 1 ]]
+    [[ "$schema_count" == 1 && "$status_count" == 1 && "$approved_count" == 1 ]]
 }
 
 work_root=''
@@ -124,6 +134,7 @@ done
 [[ "$task_spec" =~ ^docs/tasks/[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*\.md$ ]] ||
     die 'task spec must match docs/tasks/<numeric-id>-<lowercase-kebab-slug>.md'
 [[ "$mode" == dry-run || "$mode" == execute ]] || die '--mode must be dry-run or execute'
+[[ "$mode" == dry-run ]] || die 'execute mode is disabled during Gate F; no Claude process may be started'
 [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || die 'timeout must be a positive decimal integer without leading zeroes'
 ((timeout_seconds >= 60 && timeout_seconds <= 3600)) || die 'timeout must be between 60 and 3600 seconds'
 [[ "$max_turns" =~ ^[1-9][0-9]*$ ]] || die 'max turns must be a positive decimal integer without leading zeroes'
@@ -154,16 +165,6 @@ base_blob=$(git -C "$worktree_path" rev-parse "$base_commit:$task_spec")
 current_blob=$(git -C "$worktree_path" hash-object "$task_spec_path")
 [[ "$base_blob" == "$current_blob" ]] || die 'task spec differs from its reviewed base-revision content'
 approved_task_file "$task_spec_path" || die 'task spec must contain exactly one approved status'
-
-task_name=${task_spec#docs/tasks/}
-task_name=${task_name%.md}
-expected_branch="task/$task_name"
-if [[ "$mode" == execute ]]; then
-    [[ $(git -C "$worktree_path" symbolic-ref -q --short HEAD || true) == "$expected_branch" ]] ||
-        die "execute mode requires branch $expected_branch"
-    [[ "${FORGE_ENABLE_REAL_AGENTS:-}" == 1 ]] || die 'real agents are disabled; set FORGE_ENABLE_REAL_AGENTS=1 explicitly'
-    [[ "${FORGE_AGENT_ACK:-}" == "claude:$job_id" ]] || die "set FORGE_AGENT_ACK=claude:$job_id for this job"
-fi
 
 allow_file="$evidence_dir/claude-allowed-paths.txt"
 printf '%s\n' "${allow_paths[@]}" | sort -u >"$allow_file"
@@ -197,29 +198,3 @@ if [[ "$mode" == dry-run ]]; then
     printf 'claude dry-run validated; no agent invoked\n'
     exit 0
 fi
-
-command -v claude >/dev/null 2>&1 || die 'claude executable not found'
-command -v timeout >/dev/null 2>&1 || die 'timeout executable not found'
-claude --version >"$evidence_dir/claude-version.txt" 2>&1 || die 'unable to record claude version'
-claude_help=$(claude --help 2>&1) || die 'unable to inspect claude capabilities'
-for required_flag in '--output-format' '--max-turns' '--no-session-persistence' '--restricted' '--tools' '--disallowedTools' '--permission-mode'; do
-    grep -F -- "$required_flag" <<<"$claude_help" >/dev/null ||
-        die "installed claude is missing required flag: $required_flag"
-done
-
-set +e
-(
-    cd -- "$worktree_path"
-    env -i HOME="${HOME:?}" PATH="${PATH:?}" LANG=C.UTF-8 LC_ALL=C TERM=dumb \
-        timeout --signal=TERM --kill-after=15s "$timeout_seconds" \
-        claude -p --output-format json --max-turns "$max_turns" \
-        --no-session-persistence --restricted --permission-mode acceptEdits \
-        --tools Read,Edit,Write,Glob,Grep \
-        --disallowedTools 'Bash,WebFetch,WebSearch,mcp__*' <"$prompt_file"
-) >"$evidence_dir/claude-result.json" 2>"$evidence_dir/claude-stderr.txt"
-agent_status=$?
-set -e
-printf 'exit_code=%s\n' "$agent_status" >"$evidence_dir/claude-exit.env"
-((agent_status == 0)) || die "claude exited with status $agent_status"
-
-printf 'claude execution completed\n'
