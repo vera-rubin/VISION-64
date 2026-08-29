@@ -1,6 +1,6 @@
 # Task 0000: Replace with a Short Imperative Title
 
-> **Template only:** task ID `0000` is reserved and must never be dispatched. Copy this file to `docs/tasks/<positive-decimal-id>-<lowercase-kebab-slug>.md` (for example, `1-document-smoke.md`), replace every placeholder, obtain review, and commit it before dispatch. Real IDs have no leading zero.
+> **Template only:** task ID `0000` is reserved and must never be dispatched. Copy this file to `docs/tasks/<positive-decimal-id>-<lowercase-kebab-slug>.md` (for example, `1-document-smoke.md`), replace every placeholder, obtain independent protected approval, and merge the exact blob through the configured authority ref before dispatch. Real IDs have no leading zero.
 
 ## Control
 
