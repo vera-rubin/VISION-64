@@ -41,10 +41,10 @@ expect_failure() {
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(cd -- "$script_dir/.." && pwd -P)
+set_safe_directories "$repo_root"
 git_top=$(git -C "$repo_root" rev-parse --show-toplevel)
 git_top=$(cd -- "$git_top" && pwd -P)
 [[ "$git_top" == "$repo_root" ]] || die 'test must run from the VISION-64 checkout'
-set_safe_directories "$repo_root"
 
 temporary_parent=$(cd -- "${TMPDIR:-/tmp}" && pwd -P)
 test_root=$(mktemp -d "$temporary_parent/vision-forge-test.XXXXXX")
