@@ -34,7 +34,7 @@ jobs:
         run: python3 scripts/test-rook-link.py
       - name: Assert no self-hosted execution
         run: |
-          if grep -Eq 'runs-on:.*self-hosted' .github/workflows/rook-link-contract.yml; then
+          if grep -Eq '^[[:space:]]*runs-on:[[:space:]].*self-hosted' .github/workflows/rook-link-contract.yml; then
             echo 'self-hosted runner forbidden for ROOK LINK contract CI' >&2
             exit 1
           fi
