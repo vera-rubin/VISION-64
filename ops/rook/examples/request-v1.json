@@ -1,0 +1,17 @@
+{
+  "schema": "rook-link.request.v1",
+  "request_id": "smoke-001",
+  "repository": "vera-rubin/VISION-64",
+  "base_commit": "e0f7dc7741af760199003499ec060659b76fb296",
+  "operation": "probe.environment.v1",
+  "scope": {
+    "mode": "read-only",
+    "allow_mutation": false,
+    "delegate": false
+  },
+  "probe": {
+    "fields": ["hostname", "date_utc", "tool_versions"],
+    "tools": ["git", "rustc", "cargo", "qemu-system-x86_64", "python3"]
+  },
+  "acknowledgement": "rook-link:smoke-001:probe.environment.v1:read-only"
+}
