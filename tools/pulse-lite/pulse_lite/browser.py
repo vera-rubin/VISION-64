@@ -19,6 +19,7 @@ class BrowserState:
 class BrowserAdapter(Protocol):
     def inspect(self) -> BrowserState: ...
     def inject(self, prompt: str) -> tuple[bool, str]: ...
+    def stop_generation(self) -> tuple[bool, str]: ...
     def reload_exact_conversation(self) -> tuple[bool, str]: ...
 
 
@@ -35,10 +36,10 @@ def validate_cdp_url(url: str) -> None:
 
 
 class PlaywrightChatGPTAdapter:
-    """Narrow, fail-closed adapter for one exact ChatGPT conversation.
+    """Fail-closed adapter for one exact ChatGPT conversation.
 
-    Conversation content is never returned or logged. A transient hash of visible main text is
-    used only as a liveness signal for stuck-turn detection.
+    It never reads conversation text as authority. A transient hash of a bounded visible suffix is
+    used only as a local liveness signal. The hash is not persisted outside SessionState.
     """
 
     def __init__(self, cdp_url: str, conversation_url: str) -> None:
@@ -50,7 +51,7 @@ class PlaywrightChatGPTAdapter:
     def _with_page(self):
         try:
             from playwright.sync_api import sync_playwright
-        except Exception as exc:  # pragma: no cover - import environment dependent
+        except Exception as exc:  # pragma: no cover
             raise RuntimeError("playwright is not installed") from exc
 
         pw = sync_playwright().start()
@@ -62,10 +63,9 @@ class PlaywrightChatGPTAdapter:
                     if page.url == self.conversation_url:
                         matches.append(page)
             if len(matches) != 1:
-                browser.close()
                 pw.stop()
                 raise RuntimeError(f"expected exactly one configured ChatGPT page, found {len(matches)}")
-            return pw, browser, matches[0]
+            return pw, matches[0]
         except Exception:
             try:
                 pw.stop()
@@ -75,39 +75,63 @@ class PlaywrightChatGPTAdapter:
 
     @staticmethod
     def _composer(page):
-        candidates = [
-            page.locator("#prompt-textarea"),
-            page.locator('[data-testid="prompt-textarea"]'),
-        ]
-        visible = []
-        for loc in candidates:
-            try:
-                if loc.count() == 1 and loc.is_visible():
-                    visible.append(loc)
-            except Exception:
-                pass
-        # Duplicate selectors may point to the same element. Prefer the canonical id when present.
-        if candidates[0].count() == 1 and candidates[0].is_visible():
-            return candidates[0]
-        if len(visible) == 1:
-            return visible[0]
+        canonical = page.locator("#prompt-textarea")
+        try:
+            if canonical.count() == 1 and canonical.is_visible():
+                return canonical
+        except Exception:
+            pass
+        fallback = page.locator('[data-testid="prompt-textarea"]')
+        try:
+            if fallback.count() == 1 and fallback.is_visible():
+                return fallback
+        except Exception:
+            pass
         return None
 
     @staticmethod
-    def _is_generating(page) -> bool:
+    def _stop_button(page):
         selectors = [
             'button[data-testid="stop-button"]',
             'button[aria-label="Stop streaming"]',
             'button[aria-label="Stop generating"]',
         ]
+        visible = []
         for selector in selectors:
             loc = page.locator(selector)
             try:
                 if loc.count() == 1 and loc.is_visible():
-                    return True
+                    visible.append(loc)
             except Exception:
                 continue
-        return False
+        # Multiple selector forms can point to the same DOM element. De-duplicate by element handle.
+        unique = []
+        seen = set()
+        for loc in visible:
+            try:
+                handle = loc.element_handle(timeout=500)
+                key = id(handle) if handle is not None else None
+            except Exception:
+                key = None
+            if key is None or key not in seen:
+                unique.append(loc)
+                if key is not None:
+                    seen.add(key)
+        if len(unique) == 1:
+            return unique[0]
+        if visible:
+            # Prefer the canonical data-testid only when it is singular and visible.
+            canonical = page.locator('button[data-testid="stop-button"]')
+            try:
+                if canonical.count() == 1 and canonical.is_visible():
+                    return canonical
+            except Exception:
+                pass
+        return None
+
+    @classmethod
+    def _is_generating(cls, page) -> bool:
+        return cls._stop_button(page) is not None
 
     @staticmethod
     def _progress_signature(page) -> str | None:
@@ -116,48 +140,44 @@ class PlaywrightChatGPTAdapter:
             if main.count() != 1:
                 return None
             text = main.inner_text(timeout=1500)
-            # Never persist or expose the text; hash only a bounded suffix for liveness comparison.
             return sha256(text[-4000:].encode("utf-8", errors="ignore")).hexdigest()
         except Exception:
             return None
 
-    def inspect(self) -> BrowserState:
-        pw = browser = None
+    @staticmethod
+    def _composer_text(composer) -> str | None:
         try:
-            pw, browser, page = self._with_page()
+            return composer.inner_text(timeout=1000)
+        except Exception:
+            try:
+                return composer.input_value(timeout=1000)
+            except Exception:
+                return None
+
+    def inspect(self) -> BrowserState:
+        pw = None
+        try:
+            pw, page = self._with_page()
             exact = page.url == self.conversation_url
             composer = self._composer(page)
+            generating = self._is_generating(page)
+            signature = self._progress_signature(page)
             if composer is None:
-                return BrowserState(exact, False, False, self._is_generating(page), self._progress_signature(page), "composer not confidently identified")
-            try:
-                text = composer.inner_text(timeout=1000)
-            except Exception:
-                try:
-                    text = composer.input_value(timeout=1000)
-                except Exception:
-                    return BrowserState(exact, True, False, self._is_generating(page), self._progress_signature(page), "composer text unreadable")
-            return BrowserState(
-                exact_page=exact,
-                composer_present=True,
-                composer_empty=(text.strip() == ""),
-                generating=self._is_generating(page),
-                progress_signature=self._progress_signature(page),
-                reason="ok",
-            )
+                return BrowserState(exact, False, False, generating, signature, "composer not confidently identified")
+            text = self._composer_text(composer)
+            if text is None:
+                return BrowserState(exact, True, False, generating, signature, "composer text unreadable")
+            return BrowserState(exact, True, text.strip() == "", generating, signature, "ok")
         finally:
-            try:
-                if browser is not None:
-                    browser.close()
-            finally:
-                if pw is not None:
-                    pw.stop()
+            if pw is not None:
+                pw.stop()
 
     def inject(self, prompt: str) -> tuple[bool, str]:
         if not prompt.strip():
             return False, "empty prompt"
-        pw = browser = None
+        pw = None
         try:
-            pw, browser, page = self._with_page()
+            pw, page = self._with_page()
             if page.url != self.conversation_url:
                 return False, "wrong page"
             if self._is_generating(page):
@@ -165,13 +185,9 @@ class PlaywrightChatGPTAdapter:
             composer = self._composer(page)
             if composer is None:
                 return False, "composer not confidently identified"
-            try:
-                existing = composer.inner_text(timeout=1000)
-            except Exception:
-                try:
-                    existing = composer.input_value(timeout=1000)
-                except Exception:
-                    return False, "composer text unreadable"
+            existing = self._composer_text(composer)
+            if existing is None:
+                return False, "composer text unreadable"
             if existing.strip():
                 return False, "composer occupied by user text"
             try:
@@ -188,17 +204,31 @@ class PlaywrightChatGPTAdapter:
             send.click()
             return True, "submitted"
         finally:
+            if pw is not None:
+                pw.stop()
+
+    def stop_generation(self) -> tuple[bool, str]:
+        pw = None
+        try:
+            pw, page = self._with_page()
+            if page.url != self.conversation_url:
+                return False, "wrong page"
+            button = self._stop_button(page)
+            if button is None:
+                return False, "stop control not confidently available"
             try:
-                if browser is not None:
-                    browser.close()
-            finally:
-                if pw is not None:
-                    pw.stop()
+                button.click(timeout=2000)
+                return True, "stop requested"
+            except Exception as exc:
+                return False, f"stop click failed: {type(exc).__name__}"
+        finally:
+            if pw is not None:
+                pw.stop()
 
     def reload_exact_conversation(self) -> tuple[bool, str]:
-        pw = browser = None
+        pw = None
         try:
-            pw, browser, page = self._with_page()
+            pw, page = self._with_page()
             if page.url != self.conversation_url:
                 return False, "wrong page"
             page.reload(wait_until="domcontentloaded", timeout=30000)
@@ -208,9 +238,5 @@ class PlaywrightChatGPTAdapter:
         except Exception as exc:
             return False, f"reload failed: {type(exc).__name__}"
         finally:
-            try:
-                if browser is not None:
-                    browser.close()
-            finally:
-                if pw is not None:
-                    pw.stop()
+            if pw is not None:
+                pw.stop()
