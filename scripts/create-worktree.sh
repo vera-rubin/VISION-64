@@ -15,6 +15,16 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
     GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
     GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
+set_safe_directories() {
+    local index=0 safe_path
+    for safe_path in "$@"; do
+        export "GIT_CONFIG_KEY_${index}=safe.directory"
+        export "GIT_CONFIG_VALUE_${index}=$safe_path"
+        index=$((index + 1))
+    done
+    export GIT_CONFIG_COUNT="$index"
+}
+
 usage() {
     cat <<'EOF'
 Usage: create-worktree.sh --repo-root PATH --work-root PATH --job-id ID
@@ -90,6 +100,7 @@ done
     die '--base-ref must be a full 40- or 64-character commit object ID'
 
 repo_root=$(canonical_dir "$repo_root")
+set_safe_directories "$repo_root"
 git_top=$(git -C "$repo_root" rev-parse --show-toplevel 2>/dev/null) ||
     die '--repo-root is not a Git worktree'
 git_top=$(canonical_dir "$git_top")
@@ -132,6 +143,7 @@ else
         worktree add --detach "$worktree_path" "$base_commit" >&2
 fi
 
+set_safe_directories "$repo_root" "$worktree_path"
 created_top=$(git -C "$worktree_path" rev-parse --show-toplevel 2>/dev/null) ||
     die 'created path is not a Git worktree'
 created_top=$(canonical_dir "$created_top")

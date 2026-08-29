@@ -17,6 +17,16 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
     GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
     GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
+set_safe_directories() {
+    local index=0 safe_path
+    for safe_path in "$@"; do
+        export "GIT_CONFIG_KEY_${index}=safe.directory"
+        export "GIT_CONFIG_VALUE_${index}=$safe_path"
+        index=$((index + 1))
+    done
+    export GIT_CONFIG_COUNT="$index"
+}
+
 usage() {
     cat <<'EOF'
 Usage: forge-dispatch.sh --repo-root PATH --work-root PATH --job-id ID
@@ -195,6 +205,7 @@ command -v realpath >/dev/null 2>&1 || die 'realpath executable not found'
 command -v timeout >/dev/null 2>&1 || die 'timeout executable not found'
 command -v date >/dev/null 2>&1 || die 'date executable not found'
 repo_root=$(canonical_dir "$repo_root")
+set_safe_directories "$repo_root"
 git_top=$(git -C "$repo_root" rev-parse --show-toplevel 2>/dev/null) || die '--repo-root is not a Git worktree'
 git_top=$(canonical_dir "$git_top")
 [[ "$git_top" == "$repo_root" ]] || die '--repo-root must name the repository root'

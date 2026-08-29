@@ -15,6 +15,16 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
     GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
     GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
+set_safe_directories() {
+    local index=0 safe_path
+    for safe_path in "$@"; do
+        export "GIT_CONFIG_KEY_${index}=safe.directory"
+        export "GIT_CONFIG_VALUE_${index}=$safe_path"
+        index=$((index + 1))
+    done
+    export GIT_CONFIG_COUNT="$index"
+}
+
 usage() {
     cat <<'EOF'
 Usage: run-codex.sh --work-root PATH --job-id ID --base-ref COMMIT
@@ -141,6 +151,7 @@ work_root=$(canonical_dir "$work_root")
 [[ "$work_root" != / ]] || die 'refusing to use / as the work root'
 worktree_path=$(canonical_dir "$work_root/worktrees/$job_id")
 evidence_dir=$(canonical_dir "$work_root/evidence/$job_id")
+set_safe_directories "$worktree_path"
 [[ "$worktree_path" == "$work_root/worktrees/"* ]] || die 'worktree escaped its boundary'
 [[ "$evidence_dir" == "$work_root/evidence/"* ]] || die 'evidence directory escaped its boundary'
 

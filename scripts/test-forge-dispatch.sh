@@ -15,6 +15,16 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE \
     GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_CONFIG_SYSTEM \
     GIT_EXTERNAL_DIFF GIT_DIFF_OPTS GIT_PAGER_IN_USE GIT_ASKPASS SSH_ASKPASS
 
+set_safe_directories() {
+    local index=0 safe_path
+    for safe_path in "$@"; do
+        export "GIT_CONFIG_KEY_${index}=safe.directory"
+        export "GIT_CONFIG_VALUE_${index}=$safe_path"
+        index=$((index + 1))
+    done
+    export GIT_CONFIG_COUNT="$index"
+}
+
 die() {
     printf 'test-forge-dispatch: %s\n' "$*" >&2
     exit 1
@@ -34,6 +44,7 @@ repo_root=$(cd -- "$script_dir/.." && pwd -P)
 git_top=$(git -C "$repo_root" rev-parse --show-toplevel)
 git_top=$(cd -- "$git_top" && pwd -P)
 [[ "$git_top" == "$repo_root" ]] || die 'test must run from the VISION-64 checkout'
+set_safe_directories "$repo_root"
 
 temporary_parent=$(cd -- "${TMPDIR:-/tmp}" && pwd -P)
 test_root=$(mktemp -d "$temporary_parent/vision-forge-test.XXXXXX")
@@ -137,6 +148,7 @@ printf 'ok - caller Git configuration is ignored\n'
 
 fixture_repo="$test_root/fixture-repo"
 fixture_work_root="$test_root/fixture-work"
+set_safe_directories "$repo_root" "$fixture_repo"
 git init -q -b main "$fixture_repo"
 git -C "$fixture_repo" config user.name 'VISION test'
 git -C "$fixture_repo" config user.email 'vision-test@example.invalid'
@@ -150,6 +162,7 @@ fixture_base=$(git -C "$fixture_repo" rev-parse HEAD)
 
 replacement_repo="$test_root/replacement-repo"
 git clone -q "$fixture_repo" "$replacement_repo"
+set_safe_directories "$repo_root" "$fixture_repo" "$replacement_repo"
 git -C "$replacement_repo" config user.name 'VISION replacement test'
 git -C "$replacement_repo" config user.email 'vision-replacement@example.invalid'
 replacement_commit=$(git -C "$replacement_repo" rev-parse HEAD)
