@@ -4,10 +4,10 @@ import argparse
 from dataclasses import asdict
 import json
 from pathlib import Path
-import sys
 import uuid
 
 from .browser import PlaywrightChatGPTAdapter, validate_cdp_url, validate_conversation_url
+from .desktop import DesktopChatGPTAdapter
 from .engine import PulseEngine
 from .github_client import GhClient
 from .prompts import stuck_recovery_prompt, wake_prompt
@@ -28,14 +28,34 @@ def _load_or_die(store: StateStore) -> SessionState:
         raise SystemExit(f"state is invalid; preserved at {backup}: {exc}") from exc
 
 
+def _resolved_cdp_url(args) -> str:
+    value = getattr(args, "cdp_url", None)
+    if value:
+        return value
+    return "http://127.0.0.1:9224" if getattr(args, "adapter", "web") == "desktop" else "http://127.0.0.1:9223"
+
+
+def _adapter(mode: str, cdp_url: str, conversation_url: str):
+    if mode == "desktop":
+        return DesktopChatGPTAdapter(cdp_url, conversation_url)
+    if mode == "web":
+        return PlaywrightChatGPTAdapter(cdp_url, conversation_url)
+    raise ValueError(f"unsupported adapter mode: {mode}")
+
+
 def _engine(store: StateStore, state: SessionState) -> PulseEngine:
-    browser = PlaywrightChatGPTAdapter(state.cdp_url, state.conversation_url)
-    return PulseEngine(store, GhClient(), browser, log=print)
+    return PulseEngine(
+        store,
+        GhClient(),
+        _adapter(state.adapter_mode, state.cdp_url, state.conversation_url),
+        log=print,
+    )
 
 
 def cmd_doctor(args) -> int:
     validate_conversation_url(args.conversation_url)
-    validate_cdp_url(args.cdp_url)
+    cdp_url = _resolved_cdp_url(args)
+    validate_cdp_url(cdp_url)
     gh = GhClient()
     problems = []
     if not gh.auth_ok():
@@ -43,9 +63,9 @@ def cmd_doctor(args) -> int:
     elif not gh.can_read_repo(args.repository):
         problems.append(f"cannot read {args.repository}")
     try:
-        view = PlaywrightChatGPTAdapter(args.cdp_url, args.conversation_url).inspect()
+        view = _adapter(args.adapter, cdp_url, args.conversation_url).inspect()
         if not view.exact_page:
-            problems.append("exact configured ChatGPT page not found")
+            problems.append(f"configured ChatGPT conversation not proven: {view.reason}")
         if not view.composer_present:
             problems.append("ChatGPT composer not confidently identified")
     except Exception as exc:
@@ -62,13 +82,30 @@ def cmd_doctor(args) -> int:
         for item in problems:
             print(f"FAIL: {item}")
         return 1
-    print("PULSE doctor: ready")
+    print(f"PULSE doctor: ready ({args.adapter}, {cdp_url})")
     return 0
+
+
+def cmd_desktop_probe(args) -> int:
+    validate_conversation_url(args.conversation_url)
+    cdp_url = args.cdp_url or "http://127.0.0.1:9224"
+    validate_cdp_url(cdp_url)
+    try:
+        data = DesktopChatGPTAdapter(cdp_url, args.conversation_url).identity_diagnostics()
+    except Exception as exc:
+        print(json.dumps({
+            "error": f"{type(exc).__name__}: {exc}",
+            "cdp_url": cdp_url,
+        }, indent=2, sort_keys=True))
+        return 1
+    print(json.dumps(data, indent=2, sort_keys=True))
+    return 0 if data.get("exact") else 2
 
 
 def cmd_start(args) -> int:
     validate_conversation_url(args.conversation_url)
-    validate_cdp_url(args.cdp_url)
+    cdp_url = _resolved_cdp_url(args)
+    validate_cdp_url(cdp_url)
     if not 1 <= args.budget <= 3:
         raise SystemExit("--budget must be 1..3")
     if not 0 <= args.recovery_budget <= 3:
@@ -82,7 +119,8 @@ def cmd_start(args) -> int:
         request_prefix=args.request_prefix,
         wake_budget_initial=args.budget,
         wake_budget_remaining=args.budget,
-        cdp_url=args.cdp_url,
+        cdp_url=cdp_url,
+        adapter_mode=args.adapter,
         stuck_recovery_enabled=args.stuck_recovery,
         stuck_seconds=args.stuck_seconds,
         recovery_budget_initial=args.recovery_budget,
@@ -93,7 +131,10 @@ def cmd_start(args) -> int:
     )
     store = _store(args)
     store.save(state)
-    print(f"started PULSE session {session_id}; wake budget={args.budget}; recovery budget={args.recovery_budget}")
+    print(
+        f"started PULSE session {session_id}; adapter={args.adapter}; "
+        f"wake budget={args.budget}; recovery budget={args.recovery_budget}"
+    )
     return 0
 
 
@@ -186,20 +227,35 @@ def cmd_expect_rook(args) -> int:
     return 0
 
 
+def _add_adapter_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--conversation-url", required=True)
+    parser.add_argument("--adapter", choices=["web", "desktop"], default="web")
+    parser.add_argument(
+        "--cdp-url",
+        help="loopback CDP endpoint; defaults to 9223 for web and 9224 for desktop",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pulse", description="VISION-64 bounded ChatGPT micro-loop helper")
     p.add_argument("--state-dir", help="override local PULSE state directory")
     sub = p.add_subparsers(dest="command", required=True)
 
     doctor = sub.add_parser("doctor")
-    doctor.add_argument("--conversation-url", required=True)
-    doctor.add_argument("--cdp-url", default="http://127.0.0.1:9223")
+    _add_adapter_args(doctor)
     doctor.add_argument("--repository", default="vera-rubin/VISION-64")
     doctor.set_defaults(func=cmd_doctor)
 
+    desktop_probe = sub.add_parser(
+        "desktop-probe",
+        help="read-only desktop identity diagnostics; never prints conversation text",
+    )
+    desktop_probe.add_argument("--conversation-url", required=True)
+    desktop_probe.add_argument("--cdp-url", default="http://127.0.0.1:9224")
+    desktop_probe.set_defaults(func=cmd_desktop_probe)
+
     start = sub.add_parser("start")
-    start.add_argument("--conversation-url", required=True)
-    start.add_argument("--cdp-url", default="http://127.0.0.1:9223")
+    _add_adapter_args(start)
     start.add_argument("--repository", default="vera-rubin/VISION-64")
     start.add_argument("--result-issue", type=int, default=3)
     start.add_argument("--request-prefix", required=True)
