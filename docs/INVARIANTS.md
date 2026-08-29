@@ -48,8 +48,10 @@ conversation context or mutable local state.
 An ADR, task, or constitutional amendment MUST derive authority from its exact
 blob being reachable from the configured protected authority ref through the
 required independent approval. Status text, mutable transport data, an untrusted
-branch, or a candidate commit MUST NOT create authority. Dispatch MUST bind to
-the protected ref, authority commit, artifact path, and blob object ID.
+branch, or a candidate commit MUST NOT create authority. The remote protection or
+ruleset and independent approval control MUST be verified; an unprotected ref
+blocks approval and merge. Dispatch MUST bind to the protected ref, authority
+commit, artifact path, and blob object ID.
 
 ### V64-GOV-006 — Independently anchored evidence
 

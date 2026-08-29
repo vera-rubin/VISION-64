@@ -34,8 +34,9 @@ factory safe enough for a harmless end-to-end dispatch exercise.
 
 Gate F is complete only when:
 
-1. the constitutional documents contain no operative placeholders and cross-link
-   their sources of authority;
+1. the configured authority ref is remotely verified as protected with the
+   required independent approval controls, and the constitutional documents
+   contain no operative placeholders and cross-link their sources of authority;
 2. orchestration scripts reject missing, malformed, unauthorized, kernel-code,
    and every `execute` job before worktree creation or agent launch;
 3. smoke dispatch uses a fresh isolated detached worktree, creates no branch,

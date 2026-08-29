@@ -96,11 +96,13 @@ artifact is corrected. Silence is not permission to invent an architectural
 choice.
 
 Status text in a branch or candidate is not authority. An ADR becomes Accepted,
-or a task Approved, only when its exact blob is reachable from the configured
-protected authority ref through the required independent maintainer/CODEOWNER
-approval. The protected ref, authority commit, artifact path, and blob object ID
-form the immutable authority tuple. Authors and dispatched workers MUST NOT
-self-approve their governing artifact.
+or a task Approved, only when its exact blob is reachable from a remotely
+verified protected authority ref (normally `main`) through the required
+independent maintainer/CODEOWNER approval. The protected ref, authority commit,
+artifact path, and blob object ID form the immutable authority tuple. Authors and
+dispatched workers MUST NOT self-approve their governing artifact. If remote
+branch protection/rulesets or the independent approval record cannot be verified,
+authority is unavailable and work is blocked.
 
 Role-specific guidance, including [CLAUDE.md](../CLAUDE.md), may further restrict
 a worker but cannot weaken this order. Operational agent and review rules are in

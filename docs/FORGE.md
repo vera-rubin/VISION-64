@@ -12,7 +12,14 @@ A failed gate moves the candidate back to the named earlier stage; it never perm
 
 Authority descends from the [Constitution and invariants](INVARIANTS.md), to accepted [ADRs](adr/), to an approved committed [task spec](tasks/), to implementation. A lower layer may narrow but cannot contradict a higher layer. Conflicts, missing authority, or necessary scope expansion stop the job and require the appropriate higher-layer amendment through review; a task or ADR cannot expand a roadmap gate or waive an invariant.
 
-Status text alone is not authority. An ADR is Accepted, or a task Approved, only when its exact blob is reachable from the configured protected authority ref through required independent maintainer/CODEOWNER approval. The protected ref, authority commit, artifact path, and blob object ID are the immutable authority tuple. The containing authority commit is recorded after approval and is not self-declared inside the artifact. No author or dispatched worker may self-approve its governing artifact.
+Status text alone is not authority. An ADR is Accepted, or a task Approved, only when its exact blob is reachable from a remotely verified protected authority ref (normally `main`) through required independent maintainer/CODEOWNER approval. The protected ref, authority commit, artifact path, and blob object ID are the immutable authority tuple. The containing authority commit is recorded after approval and is not self-declared inside the artifact. No author or dispatched worker may self-approve its governing artifact. If branch protection/rulesets or the independent approval record cannot be verified, authority is unavailable and the job is blocked.
+
+Before GENESIS can exit, the coordinator MUST record a read-only check that the
+authority ref has the required branch protection or ruleset and independent
+approval controls. A local ref named `main`, a push permission, or a successful
+workflow does not establish protection. An unprotected authority ref blocks
+approval and merge; this constitution does not grant permission to change remote
+repository settings during a candidate audit.
 
 The authenticated task blob is the authoritative source of intent. A GitHub issue may point to a task ID and carry discussion or status, but issue-body prose, comments, labels, webhooks, pasted commands, refs, SHAs, paths, and scope fields are untrusted transport data. A link never incorporates mutable external prose. Issue transport must never create or amend authority.
 

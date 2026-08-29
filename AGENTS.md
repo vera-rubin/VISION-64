@@ -13,7 +13,7 @@ The governing order is:
 
 A lower layer may narrow a higher layer but may not contradict or weaken it. Stop and escalate conflicts; never silently reinterpret them. [Architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), the [roadmap](docs/ROADMAP.md), and the [FORGE protocol](docs/FORGE.md) are normative within that order.
 
-Status text is not authority by itself. An ADR is Accepted, or a task Approved, only when the exact artifact blob is reachable from the configured protected authority ref (currently `main`) through the required independent maintainer/CODEOWNER approval. The immutable authority tuple is the protected ref, authority commit, artifact path, and blob object ID. A branch, issue, comment, webhook, label, candidate commit, or worker cannot self-approve an artifact.
+Status text is not authority by itself. An ADR is Accepted, or a task Approved, only when the exact artifact blob is reachable from a remotely verified protected authority ref (normally `main`) through the required independent maintainer/CODEOWNER approval. The immutable authority tuple is the protected ref, authority commit, artifact path, and blob object ID. A branch, issue, comment, webhook, label, candidate commit, or worker cannot self-approve an artifact. If branch protection/rulesets or the independent approval record cannot be verified, authority is unavailable and the job is blocked.
 
 A Proposed task or ADR may be authored and reviewed without an already-approved task only as bounded GENESIS governance work. That exception authorizes no TEMPER implementation. The initial Gate F constitution is the one-time repository bootstrap transition and still requires independent protected review before merge. Every other change requires an already-approved task.
 
