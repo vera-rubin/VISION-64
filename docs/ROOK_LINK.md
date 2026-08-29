@@ -32,6 +32,24 @@ The request contains no command or shell field. v0 is a closed-world enum: if an
 6. Rook emits a result JSON conforming to `rook-link.result.v1`. The result binds the request ID, request commit, request path, base commit, operation, status, timestamps, and evidence.
 7. A frontier agent validates the result against the original request before using the evidence.
 
+## Result return channel
+
+The v0 return transport is the dedicated GitHub issue `#3`, `[ROOK LINK RESULTS] v0 result bus`.
+
+That issue and every comment on it remain untrusted transport metadata. Rook may use the issue only as a sink for completed result objects; it may not read comments there as instructions or authority.
+
+For each completed request, Rook posts exactly one new comment whose body is exactly one raw JSON object conforming to `rook-link.result.v1`:
+
+- no Markdown code fences;
+- no explanatory prose before or after the object;
+- no shell or command text;
+- no secrets;
+- no repository-content edits implied by the comment.
+
+A frontier consumer retrieves comments from issue `#3`, selects the unique result with the expected `request_id`, then validates that result against the exact request object at the result's immutable `request_commit` and canonical `request_path`. Duplicate request IDs, malformed JSON, schema failures, stale commits, or identity mismatches are blocked and never treated as evidence.
+
+This return path grants Rook only issue-comment transport. It does not grant architecture authority, repository-content write authority, merge authority, workflow authority, or permission to expand the v0 operation set.
+
 ## Replay and mutation rules
 
 - `base_commit` and `request_commit` must be full 40- or 64-hex commit IDs; symbolic refs such as `main`, `HEAD`, tags, or abbreviated SHAs are invalid.
