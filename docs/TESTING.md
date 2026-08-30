@@ -138,7 +138,11 @@ Sprint 0 launches MUST:
 - be headless and noninteractive (`-display none` and `-monitor none`, or a
   reviewed equivalent);
 - dedicate an un-multiplexed serial channel to a raw artifact;
-- disable automatic reboot and shutdown so reset cannot masquerade as progress;
+- disable automatic reboot and prevent an ordinary guest shutdown from
+  masquerading as progress. When an Accepted debug-exit ADR maps an explicit
+  test-device shutdown request to assigned process statuses, the launch MUST
+  permit that one mapped termination and the classifier MUST reject every
+  ordinary, missing, or unassigned shutdown status;
 - configure no network device or host sharing;
 - use read-only inputs or a fresh per-run writable overlay;
 - run from a clean checkout with no undeclared host files;
@@ -204,6 +208,13 @@ Sprint 0 uses QEMU's test-only debug-exit mechanism only after an Accepted ADR
 fixes the device, I/O address/width, write semantics, guest status values, and
 host status mapping. The mapping table is copied verbatim into each applicable
 task. Production control flow MUST NOT depend on this emulator-only mechanism.
+
+QEMU's `isa-debug-exit` exposes its mapped process status by requesting emulator
+shutdown. A launch using that device MUST omit `-no-shutdown`; supplying the
+flag pauses QEMU instead of returning the assigned status and therefore cannot
+satisfy the terminal contract. This is not permission to accept ordinary guest
+shutdown: only the Accepted ADR's assigned debug-exit statuses, in agreement
+with complete serial evidence, can pass. All other shutdowns and statuses fail.
 
 For `isa-debug-exit`, QEMU reports host process status `(guest_value << 1) | 1`,
 subject to host exit-status width. The selected guest values MUST yield distinct
@@ -328,8 +339,10 @@ Sprint 0 may begin only after Gate F is accepted; the exact implementation task
 is merged through protected authority with its authority tuple recorded; and
 every required mechanism has an Accepted ADR (target/boot/firmware/artifact,
 diagnostics/serial, panic path, and debug-exit). Their exact commands, marker
-registry, status mapping, fixtures, input hashes, and artifact hashes are frozen
-in the approved task. Its complete evidence set MUST
+registry, status mapping, fixtures, authority-known input hashes, generated-
+artifact names, and artifact-hash algorithm and binding procedure are frozen in
+the approved task. Exact candidate artifact hashes are bound in immutable VERIFY
+evidence before acceptance. Its complete evidence set MUST
 demonstrate:
 
 1. a clean declared-input build of the expected artifact;
