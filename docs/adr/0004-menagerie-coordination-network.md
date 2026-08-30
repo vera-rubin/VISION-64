@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-08-30
 - **Owners:** VISION-64 repository owner and orchestration maintainer
-- **Decision scope:** Host-side multi-agent coordination, participant identity and capability policy, durable message/thread transport, shared skill references, and platform adapter boundaries
+- **Decision scope:** Host-side multi-agent coordination, participant identity and capability policy, transport-neutral durable message/thread contracts, shared skill references, and platform adapter boundaries
 - **Related task(s):** `docs/tasks/2-establish-menagerie-contract-core.md`
 - **Related invariants:** `V64-GOV-001`, `V64-GOV-002`, `V64-GOV-003`, `V64-GOV-004`, `V64-GOV-005`, `V64-GOV-006`, `V64-BLD-001`, `V64-INIT-001`, `V64-FAIL-001`, `V64-CON-001`, `V64-BND-001`, `V64-DEP-001`, `V64-DEP-002`
 - **Supersedes:** None. Draft PR #11 was never protected authority and remains historical provenance only.
@@ -13,7 +13,7 @@
 
 ## Decision summary
 
-VISION-64 will implement MENAGERIE as a model-neutral, capability-governed coordination network. Participants retain separate identities, private/session memory, prompts, reasoning, and failure modes. They exchange only validated, explicitly addressed messages and exact pointers to protected authority, evidence, Git objects, and canonical repository-backed skills. A protected participant policy sets tier and capability ceilings independently of model self-claims. Work/Codex and other native tool surfaces participate directly through thin adapters. ROOK LINK remains a separate operational execution boundary, and PULSE is an optional later browser-conversation compatibility adapter rather than a MENAGERIE dependency. MENAGERIE messages coordinate work but never create architectural, execution, or repository authority.
+VISION-64 will implement MENAGERIE as a model-neutral, transport-neutral, capability-governed coordination network. Participants retain separate identities, private/session memory, prompts, reasoning, and failure modes. They exchange only validated, explicitly addressed messages and exact pointers to protected authority, evidence, Git objects, and canonical repository-backed skills. A protected participant policy sets tier and capability ceilings independently of model self-claims. Work/Codex and other native tool surfaces participate directly through thin adapters. ROOK LINK remains a separate operational execution boundary, and PULSE is an optional later browser-conversation compatibility adapter rather than a MENAGERIE dependency. MENAGERIE messages coordinate work but never create architectural, execution, or repository authority.
 
 ## Context and problem
 
@@ -177,11 +177,15 @@ Replay and dedupe rules are:
 - delivery is deduplicated by message, resolved recipient, and adapter;
 - edited transport content, identity mismatch, stale policy, missing reply target, or inconsistent receipt fails closed.
 
-### Durable GitHub transport
+### Transport-neutral durability and adapters
 
-The initial live transport, authorized only by a later task, uses one GitHub issue per MENAGERIE thread and one raw validated JSON envelope per message comment. Thread IDs remain independent of issue numbers. GitHub repository, issue, comment/node identity, exact envelope digest, exact policy blob, and resolved recipients form the durable transport record.
+MENAGERIE freezes logical durability semantics, not a transport selection. An accepted durable record binds the stable message identity, exact envelope digest, exact policy blob, authenticated sender/session binding, frozen resolved recipients, append-only receipt/status lineage, and the selected durable-store and transport locators. MENAGERIE thread and message identities remain independent of transport-native object identifiers.
 
-Issue titles, bodies, Markdown prose, labels, ordinary comments, and webhook payload text remain untrusted. A comment is routable only when its complete body is exactly one validated envelope. Editing an accepted comment changes its digest and is treated as tampering; deletion or transport loss produces a missing/blocked event and can never manufacture authority. Local router caches are replaceable and are not project truth.
+A later separately authorized transport task evaluates native Work/Codex or Antigravity facilities, a bounded broker or queue, GitHub Issues/comments, and hybrid designs. ADR 0004 neither requires nor prefers one of them. Every adopted adapter must preserve the same validation, immutable identity, digest, policy binding, tamper detection, replay, dedupe, expiry, budget, and fail-closed behavior, including across retry, migration, and recovery.
+
+Transport-native titles, bodies, prose, labels, events, and webhook payload text remain untrusted. An adapter may route only an exact validated MENAGERIE envelope. When non-public content is held in an authorized durable store, a minimal validated envelope may carry only a policy-authorized immutable pointer bound to that store and content digest. Editing, substituting, deleting, or losing accepted transport content produces a tamper, missing, or blocked event and can never manufacture authority. Local router and adapter caches are replaceable and are not project truth.
+
+Each live transport task must specify access control, intended audience, payload placement, confidentiality, retention, deletion behavior, credentials, failure recovery, and observability before adoption. A public repository, issue, comment, or other public transport is public by default and must not receive non-public MENAGERIE message bodies, prompts, private/session context, secrets, or operational metadata. Such a transport may carry only explicitly public content or the minimum policy-authorized pointer/receipt needed to locate a protected durable record.
 
 FORGE-relevant claims, skills, task scope, code, or evidence must point to their own immutable/protected objects. Message durability proves what was communicated, not that a claim is true or authorized.
 
@@ -204,7 +208,7 @@ A manifest's required capabilities are prerequisites, not grants. A protected ta
 
 - **MENAGERIE:** participant identity, capability-governed communication, threads, routing, durable messages, checkpoints, and coordination.
 - **FORGE:** GENESIS/TEMPER/VERIFY/COUNCIL/PROOF/SYNTHESIS, independence, evidence, and technical acceptance. MENAGERIE may coordinate FORGE work but cannot satisfy or bypass a gate.
-- **Protected repository/GitHub:** constitutional authority, code, ADRs/tasks, policy, skills, tests, exact Git objects, evidence pointers, and transport. Mutable GitHub prose is not authority.
+- **Protected repository/GitHub:** constitutional authority, code, ADRs/tasks, policy, skills, tests, exact Git objects, and evidence pointers. GitHub may also host a separately authorized transport adapter, but mutable GitHub prose is not authority.
 - **ROOK LINK:** separately authorized, validated operational control boundary for Rook and machine/host execution. A MENAGERIE Rook request must point to an independently valid ROOK LINK request; MENAGERIE prose is never executable authority.
 - **Work/Codex and native model surfaces:** first-class participant/control surfaces using direct thin adapters and native tools. They do not depend on PULSE.
 - **PULSE:** optional later adapter that may wake one explicitly configured ordinary browser/chat conversation with pointer-only, user-preemptible delivery. MENAGERIE, ROOK LINK, and normal Work orchestration do not depend on it.
@@ -216,13 +220,13 @@ A manifest's required capabilities are prerequisites, not grants. A protected ta
 | Logical boundaries | Affects Foundation Contracts, Protection and External Interfaces, and Host Tooling and Verification. No target OS, kernel, boot, memory, interrupt, ABI, driver, firmware, or device boundary changes. |
 | Ownership | Protected repository owns policy and canonical skills; senders own message intent; the router owns deterministic validation/delivery receipts; adapters own platform authentication and wake mechanics; participants own private/session memory. |
 | Initialization | Routing remains inaccessible until protected policy identity, adapter principal binding, schema version, budgets, and transport state validate. Disabled adapters remain unroutable. |
-| Persistence | GitHub issue/comment objects plus exact envelope/policy digests form durable conversation state. Protected Git objects remain authority/skill/evidence identities. Local caches and session memory are replaceable. |
-| Allocation/blocking | GitHub and platform-adapter I/O may allocate, block, retry, or fail on the host under bounded policy. No target or interrupt context is affected. |
+| Persistence | Accepted logical records bind exact envelope/policy digests, frozen recipients, receipts, and authorized durable-store/transport locators. Protected Git objects remain authority/skill/evidence identities. Local caches and session memory are replaceable. |
+| Allocation/blocking | Selected durable-store and platform-adapter I/O may allocate, block, retry, or fail on the host under bounded policy. No target or interrupt context is affected. |
 | Concurrency | Accepted messages and receipts are append-only events. Dedupe keys and frozen recipient expansion make concurrent routers idempotent; conflicting identities fail closed. |
 | Errors | Validation, identity, policy, route, capability, budget, expiry, replay, or adapter ambiguity rejects or queues without expanding authority or partially waking an unauthorized set. |
 | Observability | Structured receipts record message, policy, recipient, adapter, status, and reason without secrets, hidden prompts, private memory, or unnecessary body replay. |
 | Dependency direction | Native adapters depend on MENAGERIE contracts; optional PULSE and future Rook adapters depend on MENAGERIE. MENAGERIE core does not depend on PULSE, ROOK LINK, FORGE implementation, or target code. |
-| External adoption | Every live adapter, GitHub writer/watcher, credential, permission, and wake path requires a separate approved task. |
+| External adoption | Every live transport, durable-store writer/reader, adapter, credential, permission, and wake path requires a separate approved task. |
 
 ## Safety, security, and unsafe-code impact
 
@@ -261,7 +265,7 @@ A MENAGERIE message alone must never create an ADR/task, grant capability, chang
 | Models remain separate | Schema and documentation review | No shared private-memory field or automatic all-history/all-skills mode exists |
 | MENAGERIE is not FORGE or execution authority | Boundary and negative tests | Messages cannot pass a FORGE gate, launch a process, or mutate protected refs |
 | PULSE and ROOK LINK are optional/separate | Dependency and scope inspection | Core contains no PULSE/ROOK LINK import, wake, request execution, or result-bus dependency |
-| No live system is activated by Task 2 | Diff/workflow inspection | No GitHub write trigger, webhook, credential, adapter, wake, or agent launch appears |
+| No live system is activated by Task 2 | Diff/workflow inspection | No external transport write trigger, webhook, credential, adapter, wake, or agent launch appears |
 
 Task 2 freezes exact commands and retained evidence for these claims.
 
@@ -279,7 +283,8 @@ Task 2 freezes exact commands and retained evidence for these claims.
 ### Negative and tradeoffs
 
 - Participant policy, adapter identity, and exact context selection are explicit operational work.
-- GitHub comments are durable transport but not immutable authority; digest/tamper handling and immutable pointers remain necessary.
+- Transport neutrality defers operational selection; every candidate still needs durability, confidentiality, digest/tamper, replay, migration, and failure-recovery evidence.
+- Public transports require explicit payload minimization and access-policy review before any message or pointer is exposed.
 - A live router and adapters require later high-risk tasks and platform-specific verification.
 - Historical ROOK LINK v1 cannot be treated as current execution authorization merely because its schemas validate.
 - Explicit routing is less conversationally magical than injecting everything everywhere.
@@ -288,7 +293,7 @@ Task 2 freezes exact commands and retained evidence for these claims.
 
 1. Approve ADR 0004 and Task 2 through protected `main`.
 2. TEMPER Task 2: implement the inert MENAGERIE contract core, policy, skill manifest, fixtures, validator, router simulation, and read-only CI.
-3. After Task 2 is proven and merged, approve Task 3 for the GitHub issue/comment transport and direct native Work/Codex adapters, still with all live adapters disabled until separately configured.
+3. After Task 2 is proven and merged, use a new GENESIS decision to evaluate and authorize Task 3 for one or more durable transport and direct native participant adapters. GitHub Issues/comments remain one candidate, not the default; all live adapters remain disabled until separately configured.
 4. Prepare a separate ROOK LINK operational-boundary ADR, planned as ADR 0005 subject to a fresh namespace check, and preserve historical v0/v1 source provenance under a current Task 4.
 5. After ROOK LINK authority exists, use a separate Task 5 for the MENAGERIE-to-ROOK LINK adapter.
 6. Treat historical Task 6/PULSE only as provenance for a later optional browser compatibility adapter; it is not on the critical path.
@@ -304,7 +309,7 @@ Task 2 is contract-only and activates nothing. Reverting its later implementatio
 
 ROOK LINK v0/v1 schemas, examples, validators, immutable request pointer rules, result identity checks, replay controls, and source-blob maps remain reusable provenance. Their live authority and any new wire revision are decided separately. PULSE remains independently reversible.
 
-Reconsider this ADR only if direct native participant surfaces cannot authenticate stable identities, GitHub cannot provide sufficiently durable transport with digest/tamper detection, or the capability intersection cannot preserve FORGE role independence.
+Reconsider this ADR only if direct native participant surfaces cannot authenticate stable identities, the transport-independent durability contract cannot map safely onto viable adapters, no candidate can meet the required durability/confidentiality/tamper properties, or the capability intersection cannot preserve FORGE role independence.
 
 ## References
 
